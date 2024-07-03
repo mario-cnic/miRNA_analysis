@@ -1,15 +1,39 @@
 ---
-title: "deseq"
-author: "Mario"
+title: "miRNA_analysis"
+author: "Laura"
 date: "`r Sys.Date()`"
 output:
-  html_document: default
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
   pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+## Índice
+
+<!-- 1. [Introduction](## Introduction) -->
+<!-- 2. [Installation](#seccion-2) -->
+<!-- 3. [Preprocessing](#seccion-3) -->
+<!--     1. [Create readcount file from Novogene](#subseccion-31) -->
+<!--     2. [Variable transformation](#subseccion-32) -->
+<!--     3. [Create metadata file](#subseccion-33) -->
+<!-- 4. [Analysis](#seccion-4) -->
+<!-- 5. [Volcano Plot](#seccion-5) -->
+<!--     1. [Build data.frame](#subseccion-31) -->
+<!--     2. [Representation](#subseccion-52) -->
+<!--     3. [Order microRNAs list](#subseccion-53) -->
+<!-- 6. [Correlation](#seccion-6) -->
+<!--     1. [From DESeq normalization](#subseccion-61) -->
+<!--     2. [From .tpm](#subseccion-62) -->
+<!--     3. [1 to 1 comparison (raw)](#subseccion-63) -->
+<!--     4. [1 to 1 comparison (normalized)](#subseccion-64) -->
+
+## Introduction
+........
 
 ## Installation
 ```{r, eval = FALSE}
@@ -35,7 +59,7 @@ counts_xlsx <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/12.1.miRNAExp/Re
 counts_csv_path <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/readcounts.csv"
 ```
 ### Create readcount file from Novogene
-Crea un data frame a partir de un excell de Novogene que contiene los contajes para cada microRNA.
+Crea un data frame a partir de un excell de Novogene que contiene los contajes para cada miRNA.
 ```{r}
 pre_counts <- read.delim(counts_xlsx)
 ```
@@ -50,6 +74,7 @@ write.csv(pre_counts2,counts_csv_path,row.names = FALSE)
 ```
 ### Create metadata file
 Crea dataframe que contiene el nombre de las muestras y el grupo al que pertenecen, "disease" o "control", que serán las variables cualitativas del posterior análisis.
+
 ```{r}
 meta_csv_path <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/meta.csv"
 samples <- colnames(pre_counts)[2:13]
@@ -88,7 +113,7 @@ library(ggplot2)
 ```
 ### Build data.frame
 Añade nueva columna de con los valores -log10 de padj(necesaria para la representación del volcano plot). Elimina las filas con valor NA en el padj. 
-````{r}
+```{r}
 results_table$Minuslog10padj <- -log10(results_table$padj) 
 
 logical_na <- !is.na(results_table$padj) 
@@ -98,7 +123,7 @@ Selecciona aquellos microRNAs cuyo padj es menos a 0.05, es decir, significativo
 ```{r}
 significant <- filtered_results$padj < 0.05 # Seleccionar valores significativos
 significant_results <- filtered_results[significant,] 
-print(significant_results)
+head(significant_results)
 ```
 
 ### Representation
@@ -107,15 +132,15 @@ Algráfico se añade una linea azul que indica el valor límite de significancia
 ````{r}
 positive <- significant_results$log2FoldChange >0
 significant_positive <- significant_results[positive,]
-print(significant_positive)
+head(significant_positive)
 
 negative <- significant_results$log2FoldChange <0
 significant_negative <- significant_results[negative,]
-print(significant_negative)
+head(significant_negative)
 
 trans <- -log10(0.05) # Valor límite de significancia
 
-#significant_positive$microRNA <- row.names (significant_positive) # Discernir puntos solapados
+#significant_positive$miRNA <- row.names (significant_positive) # Discernir puntos solapados
 
 ggplot() + 
   geom_point(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
@@ -131,7 +156,7 @@ del log2Foldchange y de forma creciente según padj. Se escribe un archivo .csv 
 lista <- arrange (significant_results, 
   desc(abs(significant_results$log2FoldChange))) %>% 
   arrange (significant_results, significant_results$padj)
-results_path <-"C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/microRNAs_results.csv"
+results_path <-"C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/miRNAs_results.csv"
 write.csv (lista,results_path)
 ```
 
@@ -169,15 +194,19 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
-### From .tpm
+### From .tpm  !!!!!!!!!!!!
 Seleciona los datos de contaje normalizados, se renombran eliminando la termianción ".tpm" y se guardan como .csv en el directorio "data".
 ```{r}
 pre_counts_norm <- pre_counts %>% 
   select(ends_with(".tpm")) %>% 
   rename_with(~gsub(".tpm","",.x,fixed = TRUE))
 
+names <- pre_counts2$sRNA
+rownames(pre_counts_norm) <- names
+
 counts_csv_path2<- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/counts_norm.csv"
-write.csv(pre_counts_norm,counts_csv_path2,row.names = FALSE)
+write.csv(pre_counts_norm,counts_csv_path2,row.names = TRUE)
+print(pre_counts_norm)
 ```
 
 #### Representation
@@ -201,13 +230,16 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
 ```
 
 ### 1 to 1 comparison (raw)
+Se usan los valores de contaje en crudo para generar un gráfico de correlación para comparación de un muestra frente a otra. Los valores se expresan en ambos ejes en log10 del
+valor más uno: log10(x+1). Los valores de la data frame se transforman según la anterior
+ecuación y se representa en cada eje una muestra. La recta de regresión se indica en rojo. 
 ```{r}
 transformados_raw <- log10(readcounts + 1)
 head(transformados_raw)
 
 ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Añadir línea de regresión
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
   labs(title="ATTR2 vs ATTR6",
        x = "log10(readcounts + 1),ATTR2",
        y = "log10(readcounts + 1),ATTR6") +
@@ -215,16 +247,94 @@ ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
 ```
 
 ### 1 to 1 comparison (normalized)
+En este caso se usan los valores de contaje en normalizados para generar un gráfico de correlación.
 ```{r}
 transformados_norm <- log10(normalized_counts + 1)
 head(transformados_norm)
 
 ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Añadir línea de regresión
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
   labs(title="ATTR2 vs ATTR6",
        x = "log10(normalized + 1),ATTR2",
        y = "log10(normalized + 1),ATTR6") +
   theme_minimal()
+```
+
+
+
+### Spearman correlation
+```{r}
+cor_data <- cor(normalized_counts, method="spearman")
+cor_data <- melt(cor_data)
+head(cor_data)
+
+ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  theme_minimal() +
+   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs( fill = "Correlación") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Kendall correlation
+```{r}
+cor_data <- cor(normalized_counts, method="kendall")
+cor_data <- melt(cor_data)
+head(cor_data)
+
+ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  theme_minimal() +
+   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs( fill = "Correlación") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# library(ggplot2)
+# library(reshape2)
+# 
+# data <- melt(counts)
+# 
+# ggplot(data, aes(x = Var2, y = Var1, fill = value)) +
+#   geom_tile() +
+#   scale_fill_gradient(low = "white", high = "red") +
+#   labs(title = "Heatmap con ggplot2", x = "Columnas", y = "Filas") +
+#   theme_minimal()
+```
+
+
+## Heatmap
+```{r}
+# install.packages ("pheatmap")
+# library(pheatmap)
+
+sorted_significant_results <- significant_results[order(significant_results$log2FoldChange),] 
+selected_genes <- rownames(sorted_significant_results)
+print(selected_genes)
+TPM <- pre_counts_norm[selected_genes,]
+print(TPM)
+
+
+```
+
+
+```{r}
+
+heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
+
+as.data.frame(heatmap_matrix)
+```
+
+
+```{r}
+heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
+
+pheatmap(heatmap_matrix, cluster_cols = FALSE)
+
+heatmap(heatmap_matrix, scale = "column")
+
 ```
 
