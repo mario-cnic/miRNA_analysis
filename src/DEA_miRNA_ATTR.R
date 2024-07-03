@@ -78,13 +78,15 @@ significant_negative <- significant_results[negative,]
 
 trans <- -log10(0.05)
 
+significant_positive$microRNA <- row.names (significant_positive)
+
 ggplot() + 
   geom_jitter(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
-  geom_jitter(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj), color="green")+
+  geom_point(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj, color=microRNA))+
   geom_jitter(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
   geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")
+  
 
-?arrange
 lista <- arrange (significant_results, desc(abs(significant_results$log2FoldChange))) %>% 
   arrange (significant_results, significant_results$padj)
 

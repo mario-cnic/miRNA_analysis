@@ -2,18 +2,25 @@
 title: "deseq"
 author: "Mario"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Installation
+```{r, eval = FALSE}
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+BiocManager::install("DESeq2")
+install.packages("readxl")
+install.packages("tidyverse")
+```
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r message=FALSE, warning=FALSE}
 library(DESeq2, quietly = TRUE)
@@ -21,32 +28,203 @@ library(readxl)
 library(tidyverse,quietly = TRUE)
 ```
 
-# Preprocessing
-
-Aqui esta....
-
-
+## Preprocessing
 ```{r}
 print(getwd())
-counts_xlsx <- "~/Proyectos/miRNA_analysis/data/Novogene/X204SC24050930-Z01-F002_release/X204SC24050930-Z01-F002/02.Result_X204SC24050930-Z01-F002_Homo_sapiens/Result_X204SC24050930-Z01-F002_Homo_sapiens/Result_X204SC24050930-Z01-F002_Homo_sapiens/12.DiffExprAnalysis/12.1.miRNAExp/Readcount_TPM.xls"
-
-counts_csv_path <- "data/readcounts.csv"
-# pre_counts <- read_xls(counts_xlsx)
-# No puedo leer archivo, por que
-# file.exists(counts_xlsx)
-# format_from_ext(counts_xlsx)
-# format_from_signature(counts_xlsx)
-
-## Create readcount file from Novogene
-pre_counts2 <- read.delim(counts_xlsx)
-# Variable transformation
-pre_counts2 <- pre_counts2 %>%
-  select(ends_with(".readcount")) %>%
+counts_xlsx <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/12.1.miRNAExp/Readcount_TPM.xls"
+counts_csv_path <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/readcounts.csv"
+```
+### Create readcount file from Novogene
+Crea un data frame a partir de un excell de Novogene que contiene los contajes para cada microRNA.
+```{r}
+pre_counts <- read.delim(counts_xlsx)
+```
+### Variable transformation
+Seleciona los datos de contaje crudos, sin normalizar, se renombran eliminando la termianción ".readcount" y se guardan como .csv en el directorio "data".
+```{r}
+pre_counts2 <- pre_counts %>% 
+  select(ends_with(".readcount")) %>% 
   rename_with(~gsub(".readcount","",.x,fixed = TRUE))
-head(pre_counts2)
+
+write.csv(pre_counts2,counts_csv_path,row.names = FALSE) 
+```
+### Create metadata file
+Crea dataframe que contiene el nombre de las muestras y el grupo al que pertenecen, "disease" o "control", que serán las variables cualitativas del posterior análisis.
+```{r}
+meta_csv_path <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/meta.csv"
+samples <- colnames(pre_counts)[2:13]
+condition <- sapply(samples,function(x) ifelse(grepl('ATTR',x,fixed = TRUE),'disease','control'))
+
+metadata <- data.frame(condition)
+metadata <- rownames_to_column(metadata,"ID")
+print(metadata)
+write.csv(metadata, meta_csv_path,row.names = FALSE)
 ```
 
 ## Analysis
 
+### DEseq
+Establece "condition" (que puede ser "disease" o "control") como el factor para 
+el análisis y comparación de las muestras.??????
+```{r}
+readcounts <- read_csv(counts_csv_path,) %>% column_to_rownames("sRNA")
+head(readcounts)
+metadata <- read_csv(meta_csv_path) %>% mutate(condition = factor(condition))
+head(metadata)
+deseq <- DESeqDataSetFromMatrix(countData = readcounts,
+                              colData = metadata,
+                              design = ~ condition)
+deseq <- DESeq(deseq)
+results <- results(deseq)
+resultsNames(deseq)
+results_table <- data.frame(results(deseq))
+head(results_table)
+```
 
+
+## Volcano plot
+```{r}
+library(ggplot2)
+```
+### Build data.frame
+Añade nueva columna de con los valores -log10 de padj(necesaria para la representación del volcano plot). Elimina las filas con valor NA en el padj. 
+````{r}
+results_table$Minuslog10padj <- -log10(results_table$padj) 
+
+logical_na <- !is.na(results_table$padj) 
+filtered_results <-results_table[logical_na,]
+```
+Selecciona aquellos microRNAs cuyo padj es menos a 0.05, es decir, significativos.
+```{r}
+significant <- filtered_results$padj < 0.05 # Seleccionar valores significativos
+significant_results <- filtered_results[significant,] 
+print(significant_results)
+```
+
+### Representation
+Para la representación, se separan los datos en tres poblaciones: con valores de padj no significativos (negro), con padj signitivativo y valor absoluto del log2Foldchange postivo (verde) y valores con padj signitivativo y valor absoluto del log2Foldchange negativo (rojo).
+Algráfico se añade una linea azul que indica el valor límite de significancia.
+````{r}
+positive <- significant_results$log2FoldChange >0
+significant_positive <- significant_results[positive,]
+print(significant_positive)
+
+negative <- significant_results$log2FoldChange <0
+significant_negative <- significant_results[negative,]
+print(significant_negative)
+
+trans <- -log10(0.05) # Valor límite de significancia
+
+#significant_positive$microRNA <- row.names (significant_positive) # Discernir puntos solapados
+
+ggplot() + 
+  geom_point(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
+  geom_point(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj), color="green")+
+  geom_point(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
+  geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")
+````  
+
+### Order microRNAs list
+Ordena los microRNAs con valor padj significativo de forma decreciente al valor absoluto
+del log2Foldchange y de forma creciente según padj. Se escribe un archivo .csv en el directorio "data".
+```{r}
+lista <- arrange (significant_results, 
+  desc(abs(significant_results$log2FoldChange))) %>% 
+  arrange (significant_results, significant_results$padj)
+results_path <-"C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/microRNAs_results.csv"
+write.csv (lista,results_path)
+```
+
+## Correlation
+
+### From DESeq normalization
+```{r}
+head(readcounts)
+normalized_counts <- data.frame(counts(deseq,normalized=TRUE))
+head(normalized_counts)
+
+```
+#### Installation
+```{r}
+#install.packages("reshape2")
+library(reshape2) #Necesario para generar long data frames.
+```
+#### Representation
+Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
+Luego se genera una long data frame (melt).
+```{r}
+cor_data <- cor(normalized_counts, method="pearson")
+cor_data <- melt(cor_data)
+head(cor_data)
+```
+El gráfico representa los valores de correlación entre las muestras,indicando los valores
+más elevados en un azul más oscuro.
+```{r}
+ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  theme_minimal() +
+  geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs( fill = "Correlación") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+### From .tpm
+Seleciona los datos de contaje normalizados, se renombran eliminando la termianción ".tpm" y se guardan como .csv en el directorio "data".
+```{r}
+pre_counts_norm <- pre_counts %>% 
+  select(ends_with(".tpm")) %>% 
+  rename_with(~gsub(".tpm","",.x,fixed = TRUE))
+
+counts_csv_path2<- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/counts_norm.csv"
+write.csv(pre_counts_norm,counts_csv_path2,row.names = FALSE)
+```
+
+#### Representation
+Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
+Luego se genera una long data frame (melt).
+```{r}
+cor_data2 <- cor(pre_counts_norm, method="pearson")
+cor_data2 <- melt(cor_data2)
+head(cor_data2)
+```
+El gráfico representa los valores de correlación entre las muestras,indicando los valores
+más elevados en un azul más oscuro. 
+```{r}
+ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  theme_minimal() +
+   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs( fill = "Correlación") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### 1 to 1 comparison (raw)
+```{r}
+transformados_raw <- log10(readcounts + 1)
+head(transformados_raw)
+
+ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Añadir línea de regresión
+  labs(title="ATTR2 vs ATTR6",
+       x = "log10(readcounts + 1),ATTR2",
+       y = "log10(readcounts + 1),ATTR6") +
+  theme_minimal()
+```
+
+### 1 to 1 comparison (normalized)
+```{r}
+transformados_norm <- log10(normalized_counts + 1)
+head(transformados_norm)
+
+ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Añadir línea de regresión
+  labs(title="ATTR2 vs ATTR6",
+       x = "log10(normalized + 1),ATTR2",
+       y = "log10(normalized + 1),ATTR6") +
+  theme_minimal()
+```
 
