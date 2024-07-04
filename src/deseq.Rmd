@@ -305,7 +305,7 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
 #   labs(title = "Heatmap con ggplot2", x = "Columnas", y = "Filas") +
 #   theme_minimal()
 ```
-
+hola
 
 ## Heatmap OPCIÓN 1
 Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
