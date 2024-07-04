@@ -109,6 +109,7 @@ head(results_table)
 
 ## Volcano plot
 ```{r}
+install.packages("ggplot2")
 library(ggplot2)
 ```
 ### Build data.frame
@@ -171,14 +172,15 @@ head(normalized_counts)
 ```
 #### Installation
 ```{r}
-#install.packages("reshape2")
+install.packages("reshape2")
 library(reshape2) #Necesario para generar long data frames.
 ```
 #### Representation
 Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
 Luego se genera una long data frame (melt).
 ```{r}
-cor_data <- cor(normalized_counts, method="pearson")
+trans <- log10(normalized_counts+1)
+cor_data <- cor(trans, method="pearson")
 cor_data <- melt(cor_data)
 head(cor_data)
 ```
@@ -206,14 +208,15 @@ rownames(pre_counts_norm) <- names
 
 counts_csv_path2<- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/counts_norm.csv"
 write.csv(pre_counts_norm,counts_csv_path2,row.names = TRUE)
-print(pre_counts_norm)
+head(pre_counts_norm)
 ```
 
 #### Representation
 Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
 Luego se genera una long data frame (melt).
 ```{r}
-cor_data2 <- cor(pre_counts_norm, method="pearson")
+trans <- log10(pre_counts_norm+1)
+cor_data2 <- cor(trans, method="pearson")
 cor_data2 <- melt(cor_data2)
 head(cor_data2)
 ```
@@ -261,8 +264,6 @@ ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
   theme_minimal()
 ```
 
-
-
 ### Spearman correlation
 ```{r}
 cor_data <- cor(normalized_counts, method="spearman")
@@ -306,15 +307,17 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
 ```
 
 
-## Heatmap
+## Heatmap OPCIÓN 1
+Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
 ```{r}
-# install.packages ("pheatmap")
-# library(pheatmap)
-
-sorted_significant_results <- significant_results[order(significant_results$log2FoldChange),] 
+#install.packages ("pheatmap")
+library(pheatmap)
+orden <-order(significant_results$log2FoldChange, decreasing=TRUE)
+sorted_significant_results <- significant_results[orden,] 
 selected_genes <- rownames(sorted_significant_results)
-print(selected_genes)
+
 TPM <- pre_counts_norm[selected_genes,]
+TPM[TPM == 0.00000] <- 0.0000001
 print(TPM)
 
 
@@ -322,19 +325,66 @@ print(TPM)
 
 
 ```{r}
+#OPCION 1
+heatmap_matrix <- as.matrix(log10(TPM+1)))
+as.data.frame(heatmap_matrix)
 
+#OPCION 2
+counts <-log10(TPM+1)
+heatmap_matrix<-as.matrix(log2(counts/rowMeans(counts)))
+as.data.frame(heatmap_matrix)
+
+#OPCION3
+raw <- normalized_counts[selected_genes,]
+heatmap_matrix <- as.matrix(log2(counts/ rowMeans(counts)))
+as.data.frame(heatmap_matrix)
+
+#OPCION4
 heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
 
-as.data.frame(heatmap_matrix)
 ```
 
 
 ```{r}
-heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
+#heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
 
-pheatmap(heatmap_matrix, cluster_cols = FALSE)
+colores <- colorRampPalette(c("red", "white", "blue"))(256)
+pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, clustering_distance_rows = "euclidean", col=colores)
 
-heatmap(heatmap_matrix, scale = "column")
+help(pheatmap)
 
 ```
+
+## Heatmap OPCIÓN2
+Datos normalizados de Novogene. Compara muestras con muestras
+```{r}
+# #install.packages("factoextra")
+# library(factoextra)
+# 
+# dist_matrix <- dist(heatmap_matrix)
+# fviz_dist(dist.obj = dist_matrix, lab_size = 5) +
+#   theme(legend.position = "none")
+# help(dist)
+# 
+# fviz_dist(
+#   dist_matrix,
+#   order = TRUE,
+#   show_labels = TRUE,
+#   lab_size = NULL,
+#   gradient = list(low = "red", mid = "white", high = "blue")
+# )
+```
+### OPCION EdgeR
+```{r}
+#BiocManager::install("edgeR")
+library(edgeR)
+
+TPM <- log10(TPM+1)
+y <- DGEList(counts=TPM)
+logcpm <- cpm(y, log=TRUE)
+print(logcpm)
+pheatmap(y,cluster_cols = FALSE, legend_breaks = c(-2, 0, 2))
+
+```
+
 

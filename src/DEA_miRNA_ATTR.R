@@ -13,8 +13,8 @@ library(DESeq2, quietly = TRUE)
 library(readxl)
 library(tidyverse,quietly = TRUE)
 
-counts_xlsx <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/12.1.miRNAExp/Readcount_TPM.xls"
-counts_csv_path <- "data/readcounts.csv"
+counts_xlsx<-"C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/12.1.miRNAExp/Readcount_TPM.xls"
+counts_csv_path <-"C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/readcounts.csv"
 # pre_counts <- read_xls(counts_xlsx)
 # No puedo leer archivo, por que
 # file.exists(counts_xlsx)
@@ -29,9 +29,9 @@ pre_counts2 <- pre_counts2 %>%
   rename_with(~gsub(".readcount","",.x,fixed = TRUE))
 
 write.csv(pre_counts2,counts_csv_path, row.names = FALSE)
-
+help(write.csv)
 ## Create metadata file
-meta_csv_path <- "data/meta.csv"
+meta_csv_path <- "C:/Users/lgonzalezp/Desktop/miRNA_analysis/data/meta.csv"
 samples <- colnames(pre_counts2)[2:13]
 condition <- sapply(samples,function(x) ifelse(grepl('ATTR',x,fixed = TRUE),'disease','control'))
 
@@ -81,9 +81,9 @@ trans <- -log10(0.05)
 significant_positive$microRNA <- row.names (significant_positive)
 
 ggplot() + 
-  geom_jitter(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
+  geom_point(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
   geom_point(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj, color=microRNA))+
-  geom_jitter(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
+  geom_point(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
   geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")
   
 
@@ -93,4 +93,4 @@ lista <- arrange (significant_results, desc(abs(significant_results$log2FoldChan
 #write.table (lista, file= "microRNAs.csv", sep=",", dec=".", col.names=TRUE, row.names=TRUE )
 write.csv (lista, file= "microRNAs.csv")
 
-help (write.table)
+
