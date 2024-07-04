@@ -326,7 +326,7 @@ print(TPM)
 
 ```{r}
 #OPCION 1
-heatmap_matrix <- as.matrix(log10(TPM+1)))
+heatmap_matrix <- as.matrix(log10(TPM+1))
 as.data.frame(heatmap_matrix)
 
 #OPCION 2
@@ -341,6 +341,7 @@ as.data.frame(heatmap_matrix)
 
 #OPCION4
 heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
+as.data.frame(heatmap_matrix)
 
 ```
 
@@ -349,7 +350,7 @@ heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
 #heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
 
 colores <- colorRampPalette(c("red", "white", "blue"))(256)
-pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, clustering_distance_rows = "euclidean", col=colores)
+pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, col=colores)
 
 help(pheatmap)
 
