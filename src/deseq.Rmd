@@ -91,7 +91,7 @@ write.csv(metadata, meta_csv_path,row.names = FALSE)
 ### DEseq
 Establece "condition" (que puede ser "disease" o "control") como el factor para 
 el análisis y comparación de las muestras.??????
-```{r}
+```{r message=FALSE, warning=FALSE}
 readcounts <- read_csv(counts_csv_path,) %>% column_to_rownames("sRNA")
 head(readcounts)
 metadata <- read_csv(meta_csv_path) %>% mutate(condition = factor(condition))
@@ -109,7 +109,7 @@ head(results_table)
 
 ## Volcano plot
 ```{r}
-install.packages("ggplot2")
+#install.packages("ggplot2")
 library(ggplot2)
 ```
 ### Build data.frame
@@ -147,7 +147,8 @@ ggplot() +
   geom_point(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
   geom_point(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj), color="green")+
   geom_point(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
-  geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")
+  geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")+
+  ggtitle("miRNAs with significant expression")
 ````  
 
 ### Order microRNAs list
@@ -172,15 +173,15 @@ head(normalized_counts)
 ```
 #### Installation
 ```{r}
-install.packages("reshape2")
+#install.packages("reshape2")
 library(reshape2) #Necesario para generar long data frames.
 ```
 #### Representation
 Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
 Luego se genera una long data frame (melt).
 ```{r}
-trans <- log10(normalized_counts+1)
-cor_data <- cor(trans, method="pearson")
+trans_norm <- log10(normalized_counts+1)
+cor_data <- cor(trans_norm, method="pearson")
 cor_data <- melt(cor_data)
 head(cor_data)
 ```
@@ -192,11 +193,12 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
   theme_minimal() +
   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
   scale_fill_gradient(low = "white", high = "darkblue") +
-  labs( fill = "Correlación") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  labs( fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("Pearson correlation between samples")
 ```
 
-### From .tpm  !!!!!!!!!!!!
+### From .tpm
 Seleciona los datos de contaje normalizados, se renombran eliminando la termianción ".tpm" y se guardan como .csv en el directorio "data".
 ```{r}
 pre_counts_norm <- pre_counts %>% 
@@ -215,21 +217,22 @@ head(pre_counts_norm)
 Genera un dataframe con los valores de correlación entre las diferentes muestras (cor).
 Luego se genera una long data frame (melt).
 ```{r}
-trans <- log10(pre_counts_norm+1)
-cor_data2 <- cor(trans, method="pearson")
+transTPM <- log10(pre_counts_norm+1)
+cor_data2 <- cor(transTPM, method="pearson")
 cor_data2 <- melt(cor_data2)
 head(cor_data2)
 ```
 El gráfico representa los valores de correlación entre las muestras,indicando los valores
 más elevados en un azul más oscuro. 
 ```{r}
-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+ggplot(cor_data2, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
-   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
   scale_fill_gradient(low = "white", high = "darkblue") +
-  labs( fill = "Correlación") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs( fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("Pearson correlation between samples (TPM)")
 ```
 
 ### 1 to 1 comparison (raw)
@@ -246,7 +249,8 @@ ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
   labs(title="ATTR2 vs ATTR6",
        x = "log10(readcounts + 1),ATTR2",
        y = "log10(readcounts + 1),ATTR6") +
-  theme_minimal()
+  theme_minimal()+
+  ggtitle("ATTR2 vs ATTR6 scatter plot")
 ```
 
 ### 1 to 1 comparison (normalized)
@@ -261,37 +265,40 @@ ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
   labs(title="ATTR2 vs ATTR6",
        x = "log10(normalized + 1),ATTR2",
        y = "log10(normalized + 1),ATTR6") +
-  theme_minimal()
+  theme_minimal()+
+  ggtitle("ATTR2 vs ATTR6 scatter plot (normalized)")
 ```
 
 ### Spearman correlation
 ```{r}
-cor_data <- cor(normalized_counts, method="spearman")
-cor_data <- melt(cor_data)
+spe_data <- cor(normalized_counts, method="spearman")
+spe_data <- melt(spe_data)
 head(cor_data)
 
-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+ggplot(spe_data, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
    geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
   scale_fill_gradient(low = "white", high = "darkblue") +
-  labs( fill = "Correlación") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs( fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("Spearman correlation between samples")
 ```
 
 ### Kendall correlation
 ```{r}
-cor_data <- cor(normalized_counts, method="kendall")
-cor_data <- melt(cor_data)
-head(cor_data)
+ken_data <- cor(normalized_counts, method="kendall")
+ken_data <- melt(ken_data)
+head(ken_data)
 
-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+ggplot(ken_data, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
-   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
+  geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
   scale_fill_gradient(low = "white", high = "darkblue") +
-  labs( fill = "Correlación") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs( fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("Kendall correlation between samples")
 ```
 ```{r}
 # library(ggplot2)
@@ -305,9 +312,11 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
 #   labs(title = "Heatmap con ggplot2", x = "Columnas", y = "Filas") +
 #   theme_minimal()
 ```
-hola
 
-## Heatmap OPCIÓN 1
+
+
+
+## Heatmap
 Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
 ```{r}
 #install.packages ("pheatmap")
@@ -330,18 +339,18 @@ heatmap_matrix <- as.matrix(log10(TPM+1))
 as.data.frame(heatmap_matrix)
 
 #OPCION 2
-counts <-log10(TPM+1)
-heatmap_matrix<-as.matrix(log2(counts/rowMeans(counts)))
-as.data.frame(heatmap_matrix)
+# counts <-log10(TPM+1)
+# heatmap_matrix<-as.matrix(log2(counts/rowMeans(counts)))
+# as.data.frame(heatmap_matrix)
 
 #OPCION3
-raw <- normalized_counts[selected_genes,]
-heatmap_matrix <- as.matrix(log2(counts/ rowMeans(counts)))
-as.data.frame(heatmap_matrix)
+# raw <- normalized_counts[selected_genes,]
+# heatmap_matrix <- as.matrix(log2(counts/ rowMeans(counts)))
+# as.data.frame(heatmap_matrix)
 
 #OPCION4
-heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
-as.data.frame(heatmap_matrix)
+# heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
+# as.data.frame(heatmap_matrix)
 
 ```
 
@@ -356,25 +365,6 @@ help(pheatmap)
 
 ```
 
-## Heatmap OPCIÓN2
-Datos normalizados de Novogene. Compara muestras con muestras
-```{r}
-# #install.packages("factoextra")
-# library(factoextra)
-# 
-# dist_matrix <- dist(heatmap_matrix)
-# fviz_dist(dist.obj = dist_matrix, lab_size = 5) +
-#   theme(legend.position = "none")
-# help(dist)
-# 
-# fviz_dist(
-#   dist_matrix,
-#   order = TRUE,
-#   show_labels = TRUE,
-#   lab_size = NULL,
-#   gradient = list(low = "red", mid = "white", high = "blue")
-# )
-```
 ### OPCION EdgeR
 ```{r}
 #BiocManager::install("edgeR")
