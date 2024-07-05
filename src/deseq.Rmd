@@ -143,12 +143,16 @@ trans <- -log10(0.05) # Valor límite de significancia
 
 #significant_positive$miRNA <- row.names (significant_positive) # Discernir puntos solapados
 
-ggplot() + 
+v<-ggplot() + 
   geom_point(data= filtered_results, aes(x=log2FoldChange, y = Minuslog10padj)) + 
   geom_point(data = significant_positive,aes( x=log2FoldChange, y = Minuslog10padj), color="green")+
   geom_point(data = significant_negative,aes( x=log2FoldChange, y = Minuslog10padj), color="red")+
   geom_line(data=filtered_results,aes(x=log2FoldChange,y=trans),color="blue")+
   ggtitle("miRNAs with significant expression")
+
+# jpeg("volcano_plot.jpg", width = 800, height = 600)
+# print(v)
+# dev.off()
 ````  
 
 ### Order microRNAs list
@@ -188,7 +192,7 @@ head(cor_data)
 El gráfico representa los valores de correlación entre las muestras,indicando los valores
 más elevados en un azul más oscuro.
 ```{r}
-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
+pearson1<-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
@@ -196,6 +200,10 @@ ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
   labs( fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Pearson correlation between samples")
+
+jpeg("pearson.jpg", width = 800, height = 600)
+# print(pearson1)
+# dev.off()
 ```
 
 ### From .tpm
@@ -225,7 +233,7 @@ head(cor_data2)
 El gráfico representa los valores de correlación entre las muestras,indicando los valores
 más elevados en un azul más oscuro. 
 ```{r}
-ggplot(cor_data2, aes(x=Var1, y=Var2, fill=value)) +
+pearsonTPM <- ggplot(cor_data2, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
@@ -233,6 +241,11 @@ ggplot(cor_data2, aes(x=Var1, y=Var2, fill=value)) +
   labs( fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Pearson correlation between samples (TPM)")
+
+# jpeg("pearsonTPM.jpg", width = 800, height = 600)
+# print(pearsonTPM)
+# dev.off()
+pearsonTPM
 ```
 
 ### 1 to 1 comparison (raw)
@@ -243,7 +256,7 @@ ecuación y se representa en cada eje una muestra. La recta de regresión se ind
 transformados_raw <- log10(readcounts + 1)
 head(transformados_raw)
 
-ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
+s<-ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color = "red") + 
   labs(title="ATTR2 vs ATTR6",
@@ -251,6 +264,11 @@ ggplot(transformados_raw, aes(x = ATTR2, y = ATTR6)) +
        y = "log10(readcounts + 1),ATTR6") +
   theme_minimal()+
   ggtitle("ATTR2 vs ATTR6 scatter plot")
+print(s)
+
+# jpeg("scatter.jpg", width = 800, height = 600)
+# print(s)
+# dev.off()
 ```
 
 ### 1 to 1 comparison (normalized)
@@ -259,7 +277,7 @@ En este caso se usan los valores de contaje en normalizados para generar un grá
 transformados_norm <- log10(normalized_counts + 1)
 head(transformados_norm)
 
-ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
+s2<-ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color = "red") + 
   labs(title="ATTR2 vs ATTR6",
@@ -267,7 +285,70 @@ ggplot(transformados_norm, aes(x = ATTR2, y = ATTR6)) +
        y = "log10(normalized + 1),ATTR6") +
   theme_minimal()+
   ggtitle("ATTR2 vs ATTR6 scatter plot (normalized)")
+print(s2)
+
+# jpeg("scatter_norm.jpg", width = 800, height = 600)
+# print(s2)
+# dev.off()
 ```
+###1 to 1 comparison(bucle)
+
+```{r}
+# Obtener los nombres de las columnas
+col_names <- colnames(transformados_norm)
+print(col_names)
+
+# Crear un bucle para iterar sobre cada par de columnas
+for (i in 1:(length(col_names))) {
+  for (j in (i + 1):length(col_names)) {
+    # Nombres de las columnas para el gráfico actual
+    x_col <- col_names[i]
+    y_col <- col_names[j]
+    # Crear el plot
+    p<-ggplot(transformados_norm, aes_string(x = x_col, y = y_col)) +
+      geom_point() +
+      ggtitle(paste("Scatter Plot de", x_col, "vs", y_col)) +
+      geom_smooth(method = "lm", se = FALSE, color = "red")+
+      xlab(x_col) +
+      ylab(y_col)
+    # Guardar el plot como JPEG
+    file_name <- paste0("scatter_", x_col, "_vs_", y_col, ".jpg")
+    jpeg(file_name, width = 800, height = 600)
+    print(p)
+    dev.off()
+  }
+}
+```
+### Mean Comparison (DESeq normalized)
+```{r}
+
+selected_ATTR <- trans_norm[, c(1:6)]
+mean_ATTR <- rowMeans(selected_columns)
+
+selected_DCM <- trans_norm[, c(7:12)]
+mean_DCM <- rowMeans(selected_columns)
+
+mean_data <- data.frame(mean_ATTR,mean_DCM)
+print(mean_data)
+```
+```{r}
+# x<- mean_data$mean_ATTR
+# y<- mean_data$mean_DCM
+# model <- lm(y ~ x, data = mean_data)
+# summary_model <- summary(model)
+# r_squared <- summary_model$r.squared
+# print(r_squared)
+# print(summary_model)
+
+ggplot(mean_data, aes(x = mean_ATTR, y = mean_DCM)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(title="ATTR vs DCM scatter plot (DESeq normalized)", 
+       x = "log10(normalized + 1),ATTR",
+       y = "log10(normalized + 1),DCM")+
+  theme_minimal()
+```
+
 
 ### Spearman correlation
 ```{r}
@@ -275,7 +356,7 @@ spe_data <- cor(normalized_counts, method="spearman")
 spe_data <- melt(spe_data)
 head(cor_data)
 
-ggplot(spe_data, aes(x=Var1, y=Var2, fill=value)) +
+sp<- ggplot(spe_data, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
    geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
@@ -283,6 +364,11 @@ ggplot(spe_data, aes(x=Var1, y=Var2, fill=value)) +
   labs( fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Spearman correlation between samples")
+print(sp)
+
+# jpeg("spearman.jpg", width = 800, height = 600)
+# print(sp)
+# dev.off()
 ```
 
 ### Kendall correlation
@@ -291,7 +377,7 @@ ken_data <- cor(normalized_counts, method="kendall")
 ken_data <- melt(ken_data)
 head(ken_data)
 
-ggplot(ken_data, aes(x=Var1, y=Var2, fill=value)) +
+k<-ggplot(ken_data, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile() +
   theme_minimal() +
   geom_text(aes(label = sprintf("%.4f", value)), color = "black", size = 3)+
@@ -299,6 +385,11 @@ ggplot(ken_data, aes(x=Var1, y=Var2, fill=value)) +
   labs( fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Kendall correlation between samples")
+print(k)
+
+# jpeg("kendall.jpg", width = 800, height = 600)
+# print(k)
+# dev.off()
 ```
 ```{r}
 # library(ggplot2)
@@ -335,8 +426,8 @@ print(TPM)
 
 ```{r}
 #OPCION 1
-heatmap_matrix <- as.matrix(log10(TPM+1))
-as.data.frame(heatmap_matrix)
+#heatmap_matrix <- as.matrix(log10(TPM+1))
+#as.data.frame(heatmap_matrix)
 
 #OPCION 2
 # counts <-log10(TPM+1)
@@ -352,17 +443,24 @@ as.data.frame(heatmap_matrix)
 # heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
 # as.data.frame(heatmap_matrix)
 
+#OPCION5
+heatmap_matrix <- as.matrix(log2(normalized_counts[selected_genes,]/rowMeans(normalized_counts[selected_genes,])))
+as.data.frame(heatmap_matrix)
+
+
 ```
 
 
 ```{r}
-#heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
+heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
 
 colores <- colorRampPalette(c("red", "white", "blue"))(256)
-pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, col=colores)
+h<-pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, col=colores)
 
-help(pheatmap)
 
+# jpeg("heatmap1.jpg", width = 800, height = 600)
+# print(h)
+# dev.off()
 ```
 
 ### OPCION EdgeR
@@ -377,5 +475,6 @@ print(logcpm)
 pheatmap(y,cluster_cols = FALSE, legend_breaks = c(-2, 0, 2))
 
 ```
+
 
 
