@@ -13,24 +13,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-## Índice
-
-<!-- 1. [Introduction](## Introduction) -->
-<!-- 2. [Installation](#seccion-2) -->
-<!-- 3. [Preprocessing](#seccion-3) -->
-<!--     1. [Create readcount file from Novogene](#subseccion-31) -->
-<!--     2. [Variable transformation](#subseccion-32) -->
-<!--     3. [Create metadata file](#subseccion-33) -->
-<!-- 4. [Analysis](#seccion-4) -->
-<!-- 5. [Volcano Plot](#seccion-5) -->
-<!--     1. [Build data.frame](#subseccion-31) -->
-<!--     2. [Representation](#subseccion-52) -->
-<!--     3. [Order microRNAs list](#subseccion-53) -->
-<!-- 6. [Correlation](#seccion-6) -->
-<!--     1. [From DESeq normalization](#subseccion-61) -->
-<!--     2. [From .tpm](#subseccion-62) -->
-<!--     3. [1 to 1 comparison (raw)](#subseccion-63) -->
-<!--     4. [1 to 1 comparison (normalized)](#subseccion-64) -->
 
 ## Introduction
 ........
@@ -151,7 +133,7 @@ v<-ggplot() +
   ggtitle("miRNAs with significant expression")
 
 # jpeg("volcano_plot.jpg", width = 800, height = 600)
-# print(v)
+print(v)
 # dev.off()
 ````  
 
@@ -176,7 +158,7 @@ head(normalized_counts)
 
 ```
 #### Installation
-```{r}
+```{r message=FALSE, warning=FALSE}
 #install.packages("reshape2")
 library(reshape2) #Necesario para generar long data frames.
 ```
@@ -201,8 +183,8 @@ pearson1<-ggplot(cor_data, aes(x=Var1, y=Var2, fill=value)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Pearson correlation between samples")
 
-jpeg("pearson.jpg", width = 800, height = 600)
-# print(pearson1)
+#jpeg("pearson.jpg", width = 800, height = 600)
+print(pearson1)
 # dev.off()
 ```
 
@@ -323,23 +305,15 @@ for (i in 1:(length(col_names))) {
 ```{r}
 
 selected_ATTR <- trans_norm[, c(1:6)]
-mean_ATTR <- rowMeans(selected_columns)
+mean_ATTR <- rowMeans(selected_ATTR)
 
 selected_DCM <- trans_norm[, c(7:12)]
-mean_DCM <- rowMeans(selected_columns)
+mean_DCM <- rowMeans(selected_DCM)
 
 mean_data <- data.frame(mean_ATTR,mean_DCM)
 print(mean_data)
 ```
 ```{r}
-# x<- mean_data$mean_ATTR
-# y<- mean_data$mean_DCM
-# model <- lm(y ~ x, data = mean_data)
-# summary_model <- summary(model)
-# r_squared <- summary_model$r.squared
-# print(r_squared)
-# print(summary_model)
-
 ggplot(mean_data, aes(x = mean_ATTR, y = mean_DCM)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color = "red") + 
@@ -409,7 +383,7 @@ print(k)
 
 ## Heatmap
 Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
-```{r}
+```{r warning=FALSE}
 #install.packages ("pheatmap")
 library(pheatmap)
 orden <-order(significant_results$log2FoldChange, decreasing=TRUE)
@@ -417,7 +391,7 @@ sorted_significant_results <- significant_results[orden,]
 selected_genes <- rownames(sorted_significant_results)
 
 TPM <- pre_counts_norm[selected_genes,]
-TPM[TPM == 0.00000] <- 0.0000001
+#TPM[TPM == 0.00000] <- 0.0000001
 print(TPM)
 
 
@@ -454,27 +428,66 @@ as.data.frame(heatmap_matrix)
 ```{r}
 heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
 
-colores <- colorRampPalette(c("red", "white", "blue"))(256)
-h<-pheatmap(heatmap_matrix, cluster_row= TRUE,cluster_cols = FALSE, col=colores)
+colores <- colorRampPalette(c("blue", "white", "red"))(256)
+h<-pheatmap(heatmap_matrix, cluster_row= FALSE,cluster_cols = FALSE, col=colores)
 
-
-# jpeg("heatmap1.jpg", width = 800, height = 600)
-# print(h)
-# dev.off()
+#jpeg("heatmap1.jpg", width = 800, height = 600)
+#print(h)
+#dev.off()
 ```
 
 ### OPCION EdgeR
 ```{r}
-#BiocManager::install("edgeR")
-library(edgeR)
-
-TPM <- log10(TPM+1)
-y <- DGEList(counts=TPM)
-logcpm <- cpm(y, log=TRUE)
-print(logcpm)
-pheatmap(y,cluster_cols = FALSE, legend_breaks = c(-2, 0, 2))
+# #BiocManager::install("edgeR")
+# library(edgeR)
+# 
+# #TPM <- log10(TPM+1)
+# y <- DGEList(counts=TPM)
+# logcpm <- cpm(y, log=TRUE)
+# pheatmap(y,cluster_cols = FALSE, legend_breaks = c(-2, 0, 2))
 
 ```
 
+## PCA 
+```{r}
+clusterizado <- function (data) {
+
+  #PCA + classification
+pca_data <- t(data)
+pca <- prcomp(pca_data) #Calculo los componentes principales de la tabla, es decir , reducción de la dimensionalidad. 
+
+pca_dataframe <- pca$x[,c(1:10)] # La x son los valores de las nuevas variables (o componentes principales) que ha calculado.Este comando quiere decir que me pille las 10 primeras variables que ha calculado.
+
+#Classificate using k-means
+kmeans <- kmeans(pca_dataframe,2) #Agrupar muestras con k-means. Es de nuevo una lista con cluster, centers, x...
+kmeans_dataframe <- data.frame (Cluster = as.factor(kmeans$cluster)) # Ahora creamos una dataframe filtrado por el agrupado de k-means, según el elemento cluster.
+
+#Mix both dataframes
+representation_dataframe <- cbind(pca_dataframe,kmeans_dataframe)
+    # representation_dataframe$group <-breast_dataframe[,51]
+
+#Represent PCA and k-means clusters
+k<- ggplot(data=representation_dataframe, aes( x = PC2, y = PC1, colour = Cluster)) + geom_point()+ geom_label(aes(label = rownames(pca_data)), vjust = -1, hjust = 1)
+print(k)
+
+##Varianza explicada
+prop_varianza <- pca$sdev^2 / sum(pca$sdev^2)
+
+ggplot(data = data.frame(prop_varianza, pc = 1:4),
+       aes(x = pc, y = prop_varianza)) +
+  geom_col(width = 0.3) +
+  scale_y_continuous(limits = c(0,1)) +
+  theme_bw() +
+  labs(x = "Componente principal",
+       y = "Prop. de varianza explicada")
+}
+```
+
+```{r}
+clusterizado(TPM)
+```
+```{r}
+clusterizado(normalized_counts)
+```
 
 
