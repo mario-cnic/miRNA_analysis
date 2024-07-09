@@ -25,6 +25,9 @@ if (!require("BiocManager", quietly = TRUE))
 BiocManager::install("DESeq2")
 install.packages("readxl")
 install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("reshape2")
+install.packages ("pheatmap")
 ```
 
 
@@ -72,7 +75,7 @@ write.csv(metadata, meta_csv_path,row.names = FALSE)
 
 ### DEseq
 Establece "condition" (que puede ser "disease" o "control") como el factor para 
-el análisis y comparación de las muestras.??????
+el análisis y comparación de las muestras.
 ```{r message=FALSE, warning=FALSE}
 readcounts <- read_csv(counts_csv_path,) %>% column_to_rownames("sRNA")
 head(readcounts)
@@ -91,7 +94,6 @@ head(results_table)
 
 ## Volcano plot
 ```{r}
-#install.packages("ggplot2")
 library(ggplot2)
 ```
 ### Build data.frame
@@ -151,15 +153,14 @@ write.csv (lista,results_path)
 ## Correlation
 
 ### From DESeq normalization
+Normalización de datos de contaje crudos.
 ```{r}
 head(readcounts)
 normalized_counts <- data.frame(counts(deseq,normalized=TRUE))
 head(normalized_counts)
-
 ```
-#### Installation
+
 ```{r message=FALSE, warning=FALSE}
-#install.packages("reshape2")
 library(reshape2) #Necesario para generar long data frames.
 ```
 #### Representation
@@ -223,7 +224,9 @@ pearsonTPM <- ggplot(cor_data2, aes(x=Var1, y=Var2, fill=value)) +
   labs( fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("Pearson correlation between samples (TPM)")
-
+```
+Guarda como .jgp el gráfico
+```{r}
 # jpeg("pearsonTPM.jpg", width = 800, height = 600)
 # print(pearsonTPM)
 # dev.off()
@@ -273,9 +276,10 @@ print(s2)
 # print(s2)
 # dev.off()
 ```
-###1 to 1 comparison(bucle)
 
-```{r}
+### 1 to 1 comparison(bucle)
+Comparación 1 a 1 de todas las muestras y guardar como .jpg
+```{r message=FALSE, warning=FALSE}
 # Obtener los nombres de las columnas
 col_names <- colnames(transformados_norm)
 print(col_names)
@@ -302,6 +306,7 @@ for (i in 1:(length(col_names))) {
 }
 ```
 ### Mean Comparison (DESeq normalized)
+Comparación de medias de ATTR y DCM. Calcula la media de expresión para cada miRNA en cada condición y estos valores los representa en un scatter plot.
 ```{r}
 
 selected_ATTR <- trans_norm[, c(1:6)]
@@ -311,7 +316,7 @@ selected_DCM <- trans_norm[, c(7:12)]
 mean_DCM <- rowMeans(selected_DCM)
 
 mean_data <- data.frame(mean_ATTR,mean_DCM)
-print(mean_data)
+head(mean_data)
 ```
 ```{r}
 ggplot(mean_data, aes(x = mean_ATTR, y = mean_DCM)) +
@@ -325,6 +330,7 @@ ggplot(mean_data, aes(x = mean_ATTR, y = mean_DCM)) +
 
 
 ### Spearman correlation
+Usando datos normalizados por DESeq.
 ```{r}
 spe_data <- cor(normalized_counts, method="spearman")
 spe_data <- melt(spe_data)
@@ -346,6 +352,7 @@ print(sp)
 ```
 
 ### Kendall correlation
+Usando datos normalizados por DESeq.
 ```{r}
 ken_data <- cor(normalized_counts, method="kendall")
 ken_data <- melt(ken_data)
@@ -365,39 +372,24 @@ print(k)
 # print(k)
 # dev.off()
 ```
-```{r}
-# library(ggplot2)
-# library(reshape2)
-# 
-# data <- melt(counts)
-# 
-# ggplot(data, aes(x = Var2, y = Var1, fill = value)) +
-#   geom_tile() +
-#   scale_fill_gradient(low = "white", high = "red") +
-#   labs(title = "Heatmap con ggplot2", x = "Columnas", y = "Filas") +
-#   theme_minimal()
-```
-
-
-
 
 ## Heatmap
-Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
 ```{r warning=FALSE}
-#install.packages ("pheatmap")
 library(pheatmap)
+```
+Selecciona los miRNA significativos.
+```{r}
 orden <-order(significant_results$log2FoldChange, decreasing=TRUE)
 sorted_significant_results <- significant_results[orden,] 
 selected_genes <- rownames(sorted_significant_results)
-
+```
+Datos ya normalizados por Novogene (contenidos en pre_counts_norm)
+```{r}
 TPM <- pre_counts_norm[selected_genes,]
 #TPM[TPM == 0.00000] <- 0.0000001
-print(TPM)
-
-
+head(TPM)
 ```
-
-
+Diferentes opciones de transformación de los datos para generar el heatmap:
 ```{r}
 #OPCION 1
 #heatmap_matrix <- as.matrix(log10(TPM+1))
@@ -408,27 +400,25 @@ print(TPM)
 # heatmap_matrix<-as.matrix(log2(counts/rowMeans(counts)))
 # as.data.frame(heatmap_matrix)
 
-#OPCION3
+#OPCION 3
 # raw <- normalized_counts[selected_genes,]
 # heatmap_matrix <- as.matrix(log2(counts/ rowMeans(counts)))
 # as.data.frame(heatmap_matrix)
 
-#OPCION4
+#OPCION 4
 # heatmap_matrix <- as.matrix(log2(log10(TPM+1)))
 # as.data.frame(heatmap_matrix)
 
-#OPCION5
+#OPCION 5
 heatmap_matrix <- as.matrix(log2(normalized_counts[selected_genes,]/rowMeans(normalized_counts[selected_genes,])))
 as.data.frame(heatmap_matrix)
-
-
 ```
 
 
 ```{r}
-heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Lo mismo pero le quitas el infinito 
+heatmap_matrix <- heatmap_matrix[is.finite(rowSums(heatmap_matrix)),] #Eliminar valores infinitos
 
-colores <- colorRampPalette(c("blue", "white", "red"))(256)
+colores <- colorRampPalette(c("blue", "white", "red"))(256)# Especificar paleta de color
 h<-pheatmap(heatmap_matrix, cluster_row= FALSE,cluster_cols = FALSE, col=colores)
 
 #jpeg("heatmap1.jpg", width = 800, height = 600)
@@ -449,14 +439,15 @@ h<-pheatmap(heatmap_matrix, cluster_row= FALSE,cluster_cols = FALSE, col=colores
 ```
 
 ## PCA 
+Análisis de componentes principales (10), clusterizado por k-means y representación.
 ```{r}
 clusterizado <- function (data) {
 
   #PCA + classification
 pca_data <- t(data)
-pca <- prcomp(pca_data) #Calculo los componentes principales de la tabla, es decir , reducción de la dimensionalidad. 
+pca <- prcomp(pca_data) #Calculo los componentes principales de la tabla
 
-pca_dataframe <- pca$x[,c(1:10)] # La x son los valores de las nuevas variables (o componentes principales) que ha calculado.Este comando quiere decir que me pille las 10 primeras variables que ha calculado.
+pca_dataframe <- pca$x[,c(1:10)] # La x son los valores de las nuevas variables (o componentes principales) que ha calculado.
 
 #Classificate using k-means
 kmeans <- kmeans(pca_dataframe,2) #Agrupar muestras con k-means. Es de nuevo una lista con cluster, centers, x...
